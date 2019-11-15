@@ -46,18 +46,18 @@
     "tslib": "^1.10.0",
     "typescript": "^3.7.2"
   },
-  "description": "",
+  "description": "> A library to connect your React components to a Redux like store",
   "directories": {
     "example": "example",
     "test": "test"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/etienne-dldc/react-store-reconciler.git"
+    "url": "git+https://github.com/etienne-dldc/react-store-connect.git"
   },
   "keywords": [],
   "bugs": {
-    "url": "https://github.com/etienne-dldc/react-store-reconciler/issues"
+    "url": "https://github.com/etienne-dldc/react-store-connect/issues"
   },
-  "homepage": "https://github.com/etienne-dldc/react-store-reconciler#readme"
+  "homepage": "https://github.com/etienne-dldc/react-store-connect#readme"
 }
