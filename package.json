@@ -1,0 +1,62 @@
+{
+  "name": "react-store-connect",
+  "version": "1.0.0-alpha.0",
+  "license": "MIT",
+  "author": "Etienne Dldc",
+  "main": "dist/index.js",
+  "module": "dist/react-store-connect.esm.js",
+  "typings": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "start": "tsdx watch",
+    "build": "tsdx build",
+    "test": "tsdx test --env=jsdom",
+    "lint": "tsdx lint",
+    "pub": "npx np"
+  },
+  "peerDependencies": {
+    "react": ">=16"
+  },
+  "dependencies": {
+    "suub": "^1.4.2"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "tsdx lint"
+    }
+  },
+  "prettier": {
+    "printWidth": 80,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "es5"
+  },
+  "devDependencies": {
+    "@types/jest": "^24.0.22",
+    "@types/react": "^16.9.11",
+    "@types/react-dom": "^16.9.4",
+    "@types/react-reconciler": "^0.18.0",
+    "husky": "^3.0.9",
+    "react": "^16.11.0",
+    "react-dom": "^16.11.0",
+    "tsdx": "^0.11.0",
+    "tslib": "^1.10.0",
+    "typescript": "^3.7.2"
+  },
+  "description": "",
+  "directories": {
+    "example": "example",
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/etienne-dldc/react-store-reconciler.git"
+  },
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/etienne-dldc/react-store-reconciler/issues"
+  },
+  "homepage": "https://github.com/etienne-dldc/react-store-reconciler#readme"
+}

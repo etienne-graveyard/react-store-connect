@@ -1,0 +1,193 @@
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { Subscription } from 'suub';
+import produce from 'immer';
+import { Connect, Selector, SelectManager } from '../src';
+
+// This is just a simple store using immer
+function createStore<T>(initial: T) {
+  const sub = Subscription.create();
+  let state = initial;
+  return {
+    getState: () => state,
+    update: (updater: (draft: T) => any) => {
+      state = produce(state, updater);
+      sub.call();
+    },
+    subscribe: sub.subscribe,
+  };
+}
+
+interface Todo {
+  title: string;
+  done: boolean;
+  id: number;
+}
+
+interface State {
+  todos: Array<Todo>;
+  hideDone: boolean;
+}
+
+const store = createStore<State>({
+  todos: [],
+  hideDone: false,
+});
+
+// Selector
+
+const selectManager = SelectManager.create();
+
+// in order to be usable with useSelector
+// all selector must receive the state as first parameter
+const selectVisibleTodos = (state: State) => {
+  // selectManager.select is similar to React.useMemo
+  return selectManager.select(() => {
+    if (state.hideDone) {
+      return state.todos.filter(t => t.done === false);
+    }
+    return state.todos;
+  }, [state.todos, state.hideDone]);
+};
+
+const selectVisibleTodosCount = (state: State) => {
+  // You can compose selectors
+  return selectManager.select(() => {
+    return selectVisibleTodos(state).length;
+  }, [state]);
+};
+
+// selector can take parameter
+const selectTodo: Selector<[State, number], Todo | null> = (
+  state: State,
+  todoId: number
+) => {
+  return selectManager.select(() => {
+    return state.todos.find(todo => todo.id === todoId) || null;
+  }, [state.todos, todoId]);
+};
+
+const selectHideDone = (state: State) => {
+  // selectGlobal let you cache globally using a key (string / number / reference / symbol)
+  // instead of caching by selectContext
+  return selectManager.selectGlobal(
+    'hideDone',
+    () => {
+      return state.hideDone;
+    },
+    [state.hideDone]
+  );
+};
+
+// Connect
+
+const { Provider: ConnectProvider, useSelector } = Connect.create();
+
+// React
+
+let nextTodoId = 0;
+
+const App = () => {
+  const [newTodo, setNewTodo] = React.useState('');
+
+  const hideDone = useSelector(selectHideDone);
+  const todos = useSelector(selectVisibleTodos);
+  const todosCount = useSelector(selectVisibleTodosCount);
+
+  return (
+    <div>
+      <div>
+        <button
+          onClick={() => {
+            store.update(draft => {
+              draft.hideDone = !draft.hideDone;
+            });
+          }}
+        >
+          {hideDone ? 'Show All' : 'Hide done'}
+        </button>
+      </div>
+      <input
+        type="text"
+        placeholder="add todo"
+        value={newTodo}
+        onChange={e => setNewTodo(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') {
+            store.update(state => {
+              state.todos.push({
+                title: newTodo,
+                done: false,
+                id: nextTodoId++,
+              });
+            });
+            setNewTodo('');
+          }
+        }}
+      />
+      <div>
+        {todos.map(todo => {
+          return <Todo todoId={todo.id} key={todo.id} />;
+        })}
+      </div>
+      <p>Count: {todosCount}</p>
+    </div>
+  );
+};
+
+const Todo = React.memo<{ todoId: number }>(function Todo({ todoId }) {
+  const todo = useSelector(selectTodo, todoId);
+
+  console.log(`Render todo ${todoId}`);
+
+  if (!todo) {
+    return null;
+  }
+
+  return (
+    <div>
+      <input
+        type="checkbox"
+        checked={todo.done}
+        onChange={e => {
+          store.update(draft => {
+            const todo = draft.todos.find(t => t.id === todoId);
+            if (todo) {
+              todo.done = !todo.done;
+            }
+          });
+        }}
+      />
+      <span>{todo.title}</span>
+    </div>
+  );
+});
+
+ReactDOM.render(
+  <ConnectProvider selectManager={selectManager} store={store}>
+    <App />
+  </ConnectProvider>,
+  document.getElementById('root')
+);
+
+// Select outside of React
+
+const outsideCtx = selectManager.createContext('outside');
+
+let prevTodosCount: any = null;
+
+const selectOutside = () => {
+  const state = store.getState();
+
+  const todosCount = outsideCtx.execute(selectVisibleTodosCount, state);
+
+  if (prevTodosCount !== todosCount) {
+    if (prevTodosCount !== null) {
+      console.log(`todosCount changed ! (${prevTodosCount} => ${todosCount})`);
+    }
+    prevTodosCount = todosCount;
+  }
+};
+
+store.subscribe(selectOutside);
+selectOutside();
