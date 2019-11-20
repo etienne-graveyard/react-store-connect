@@ -19,9 +19,7 @@
   "peerDependencies": {
     "react": ">=16"
   },
-  "dependencies": {
-    "suub": "^1.4.2"
-  },
+  "dependencies": {},
   "husky": {
     "hooks": {
       "pre-commit": "tsdx lint"

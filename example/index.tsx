@@ -2,21 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import { Subscription } from 'suub';
 import produce from 'immer';
-import { Connect, Selector, SelectManager } from '../src';
+import { Connect, StoreMemoSelector, StoreMemoManager } from '../src';
 
-// This is just a simple store using immer
-function createStore<T>(initial: T) {
-  const sub = Subscription.create();
-  let state = initial;
-  return {
-    getState: () => state,
-    update: (updater: (draft: T) => any) => {
-      state = produce(state, updater);
-      sub.call();
-    },
-    subscribe: sub.subscribe,
-  };
-}
+type Selector<Output, Inputs extends Array<any> = []> = StoreMemoSelector<
+  State,
+  Inputs,
+  Output
+>;
 
 interface Todo {
   title: string;
@@ -34,15 +26,17 @@ const store = createStore<State>({
   hideDone: false,
 });
 
+const selectManager = StoreMemoManager.create(store);
+
 // Selector
 
-const selectManager = SelectManager.create();
+const selectHideDone: Selector<boolean> = ({ state }) => state.hideDone;
 
 // in order to be usable with useSelector
 // all selector must receive the state as first parameter
-const selectVisibleTodos = (state: State) => {
+const selectVisibleTodos: Selector<Todo[]> = ({ state, memo }) => {
   // selectManager.select is similar to React.useMemo
-  return selectManager.select(() => {
+  return memo(() => {
     if (state.hideDone) {
       return state.todos.filter(t => t.done === false);
     }
@@ -50,33 +44,23 @@ const selectVisibleTodos = (state: State) => {
   }, [state.todos, state.hideDone]);
 };
 
-const selectVisibleTodosCount = (state: State) => {
-  // You can compose selectors
-  return selectManager.select(() => {
-    return selectVisibleTodos(state).length;
-  }, [state]);
+const selectVisibleTodosCount: Selector<number> = ({ execute }) => {
+  return execute(selectVisibleTodos).length;
 };
 
 // selector can take parameter
-const selectTodo: Selector<[State, number], Todo | null> = (
-  state: State,
-  todoId: number
+const selectTodo: Selector<Todo | null, [number]> = (
+  { state, memo },
+  todoId
 ) => {
-  return selectManager.select(() => {
+  return memo(() => {
     return state.todos.find(todo => todo.id === todoId) || null;
   }, [state.todos, todoId]);
 };
 
-const selectHideDone = (state: State) => {
-  // selectGlobal let you cache globally using a key (string / number / reference / symbol)
-  // instead of caching by selectContext
-  return selectManager.selectGlobal(
-    'hideDone',
-    () => {
-      return state.hideDone;
-    },
-    [state.hideDone]
-  );
+const selectDoneCount: Selector<number> = ({ state, memo }) => {
+  const done = memo(() => state.todos.filter(t => t.done), [state.todos]);
+  return done.length;
 };
 
 // Connect
@@ -93,6 +77,7 @@ const App = () => {
   const hideDone = useSelector(selectHideDone);
   const todos = useSelector(selectVisibleTodos);
   const todosCount = useSelector(selectVisibleTodosCount);
+  const doneCount = useSelector(selectDoneCount);
 
   return (
     <div>
@@ -131,6 +116,7 @@ const App = () => {
         })}
       </div>
       <p>Count: {todosCount}</p>
+      <p>Done: {doneCount}</p>
     </div>
   );
 };
@@ -164,7 +150,7 @@ const Todo = React.memo<{ todoId: number }>(function Todo({ todoId }) {
 });
 
 ReactDOM.render(
-  <ConnectProvider selectManager={selectManager} store={store}>
+  <ConnectProvider manager={selectManager}>
     <App />
   </ConnectProvider>,
   document.getElementById('root')
@@ -177,9 +163,7 @@ const outsideCtx = selectManager.createContext('outside');
 let prevTodosCount: any = null;
 
 const selectOutside = () => {
-  const state = store.getState();
-
-  const todosCount = outsideCtx.execute(selectVisibleTodosCount, state);
+  const todosCount = outsideCtx.execute(selectVisibleTodosCount);
 
   if (prevTodosCount !== todosCount) {
     if (prevTodosCount !== null) {
@@ -191,3 +175,17 @@ const selectOutside = () => {
 
 store.subscribe(selectOutside);
 selectOutside();
+
+// This is just a simple store using immer
+function createStore<T>(initial: T) {
+  const sub = Subscription.create();
+  let state = initial;
+  return {
+    getState: () => state,
+    update: (updater: (draft: T) => any) => {
+      state = produce(state, updater);
+      sub.call();
+    },
+    subscribe: sub.subscribe,
+  };
+}

@@ -6463,11 +6463,6 @@ supports-hyperlinks@^2.0.0:
     has-flag "^4.0.0"
     supports-color "^7.0.0"
 
-suub@^1.4.2:
-  version "1.4.2"
-  resolved "https://registry.yarnpkg.com/suub/-/suub-1.4.2.tgz#ffef21b3e74e9bb21fce5b534fa43e68abd45ea3"
-  integrity sha512-y35d3bJgpFZQZy/iVxZJd2XNsXcy5e2jW9BTDwCKuM2kE+WiNECTZY6pmpJfncYFy67NF9WL6q1RLhG6DtE4Jg==
-
 symbol-observable@1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/symbol-observable/-/symbol-observable-1.0.1.tgz#8340fc4702c3122df5d22288f88283f513d3fdd4"

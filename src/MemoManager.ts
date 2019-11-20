@@ -1,7 +1,7 @@
 import { arrayShallowEqual } from './utils';
-import { Subscription, SubscribeMethod } from 'suub';
 
 export type Selector<Inputs extends Array<any>, Output> = (
+  tools: MemoTools,
   ...inputs: Inputs
 ) => Output;
 
@@ -14,7 +14,20 @@ type CacheObj = {
 
 type CtxCache = Array<CacheObj>;
 
-interface SelectManagerContext {
+export interface MemoTools {
+  memo<Output>(selector: () => Output, deps: ReadonlyArray<any>): Output;
+  globalMemo<Output>(
+    key: any,
+    selector: () => Output,
+    deps: ReadonlyArray<any>
+  ): Output;
+  execute<Inputs extends Array<any>, Output>(
+    selector: Selector<Inputs, Output>,
+    ...inputs: Inputs
+  ): Output;
+}
+
+interface MemoContext {
   execute<Inputs extends Array<any>, Output>(
     selector: Selector<Inputs, Output>,
     ...inputs: Inputs
@@ -22,48 +35,27 @@ interface SelectManagerContext {
   destroy(): void;
 }
 
-export interface SelectManager {
-  select<Output>(selector: () => Output, deps: ReadonlyArray<any>): Output;
-  selectGlobal<Output>(
-    key: any,
-    selector: () => Output,
-    deps: ReadonlyArray<any>
-  ): Output;
-  createContext(name: string): SelectManagerContext;
-  getCache(): AllCaches;
-  subscribeCache: SubscribeMethod<void>;
+export interface MemoManager {
+  createContext(name: string): MemoContext;
 }
 
-export const SelectManager = {
-  create: createSelectManager,
+export const MemoManager = {
+  create: createMemoManager,
 };
 
 type SelectorRef = any;
 
-type AllCaches = {
-  contextCache: Map<Ctx, CtxCache | null>;
-  globalCache: Map<SelectorRef, CacheObj>;
-};
-
-function createSelectManager(): SelectManager {
+function createMemoManager(): MemoManager {
   const contextCache: Map<Ctx, CtxCache | null> = new Map();
   const globalCache: Map<SelectorRef, CacheObj> = new Map();
-  const {
-    call: callCacheSubs,
-    subscribe: subscribeCache,
-  } = Subscription.create<void>();
   let currentCtx: Ctx | null = null;
   let nextCache: CtxCache | null = null;
 
   return {
-    select,
-    selectGlobal,
     createContext,
-    getCache,
-    subscribeCache,
   };
 
-  function select<Output>(
+  function memo<Output>(
     selector: () => Output,
     deps: ReadonlyArray<any>
   ): Output {
@@ -90,7 +82,7 @@ function createSelectManager(): SelectManager {
     return nextSelectCache.result;
   }
 
-  function selectGlobal<Output>(
+  function globalMemo<Output>(
     key: any,
     selector: () => Output,
     deps: ReadonlyArray<any>
@@ -106,13 +98,19 @@ function createSelectManager(): SelectManager {
       result: selector(),
     };
     globalCache.set(key, nextSelectorCache);
-    callCacheSubs();
     return nextSelectorCache.result;
   }
 
-  function createContext(name: string): SelectManagerContext {
+  function createContext(name: string): MemoContext {
     const ctx: Ctx = Symbol(name);
     contextCache.set(ctx, null);
+
+    const tools: MemoTools = {
+      memo,
+      globalMemo,
+      execute,
+    };
+
     return {
       destroy: () => destroy(ctx),
       execute,
@@ -122,7 +120,7 @@ function createSelectManager(): SelectManager {
       selectorFactory: Selector<Inputs, Output>,
       ...inputs: Inputs
     ): Output {
-      return executeInternal(ctx, selectorFactory, ...inputs);
+      return executeInternal(ctx, selectorFactory, tools, ...inputs);
     }
   }
 
@@ -133,11 +131,12 @@ function createSelectManager(): SelectManager {
   function executeInternal<Inputs extends Array<any>, Output>(
     ctx: Ctx,
     selector: Selector<Inputs, Output>,
+    tools: MemoTools,
     ...inputs: Inputs
   ): Output {
     currentCtx = ctx;
     nextCache = [];
-    const result = selector(...inputs);
+    const result = selector(tools, ...inputs);
     const ctxCache = contextCache.get(ctx);
     if (ctxCache === undefined) {
       throw new Error(`Cache destroyed !`);
@@ -146,16 +145,8 @@ function createSelectManager(): SelectManager {
       throw new Error(`ctxCache.length !== nextCache.length`);
     }
     contextCache.set(ctx, nextCache);
-    callCacheSubs();
     currentCtx = null;
     nextCache = null;
     return result;
-  }
-
-  function getCache() {
-    return {
-      contextCache,
-      globalCache,
-    };
   }
 }
