@@ -1,6 +1,6 @@
 {
   "name": "react-store-connect",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "license": "MIT",
   "author": "Etienne Dldc",
   "main": "dist/index.js",
