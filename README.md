@@ -1,16 +1,17 @@
-# React Store Sonnect
+# React Store Connect
 
 > A library to connect your React components to a Redux like store
 
 ## Gist
 
 ```js
-const selectManager = SelectManager.create();
+// store must be { getState, subscribe }
+const selectManager = StoreMemoManager.create(store);
 ```
 
 ```js
-const selectVisibleTodos = state => {
-  return selectManager.select(() => {
+const selectVisibleTodos = ({ state, memo }) => {
+  return memo(() => {
     if (state.hideDone) {
       return state.todos.filter(t => t.done === false);
     }
@@ -18,10 +19,9 @@ const selectVisibleTodos = state => {
   }, [state.todos, state.hideDone]);
 };
 
-const selectVisibleTodosCount = state => {
-  return selectManager.select(() => {
-    return selectVisibleTodos(state).length;
-  }, [state]);
+const selectDoneCount: Selector<number> = ({ state, memo }) => {
+  const done = memo(() => state.todos.filter(t => t.done), [state.todos]);
+  return done.length;
 };
 ```
 
@@ -29,15 +29,15 @@ const selectVisibleTodosCount = state => {
 const { Provider, useSelector } = Connect.create();
 
 const App = () => {
-  const todosCount = useSelector(selectVisibleTodosCount);
+  const visibleTodos = useSelector(selectVisibleTodos);
 
-  return <span>{todosCount}</span>;
+  return <span>{visibleTodos.length}</span>;
 };
 
 ReactDOM.render(
-  <ConnectProvider selectManager={selectManager} store={store}>
+  <Provider manager={selectManager}>
     <App />
-  </ConnectProvider>,
+  </Provider>,
   document.getElementById('root')
 );
 ```
@@ -45,8 +45,8 @@ ReactDOM.render(
 ## How does it work ?
 
 ```js
-const doubleSelector = state => {
-  return selectManager.select(
+const doubleSelector = ({ state, memo }) => {
+  return memo(
     // the select function
     () => state.something.map(num => num * 2),
     // dependencies
@@ -54,30 +54,31 @@ const doubleSelector = state => {
   );
 };
 
-// to execute a selector you need a SelectContext
+// to execute a selector you need a Context
 // createContext take a name argument, this is only for debug
 const ctx = selectManager.createContext('my-context');
 
+// imagine the state is
 const state1 = { something: [1, 2, 3] };
 
 // now we can execute our selector
 // the execute function take a selector and pass all other arguments to the selector function
-// this will execute simpleSelector which will call selectManager.select
+// this will execute simpleSelector which will call memo()
 // because this is the first time we call it, there are no cache
 // so () => state.something.map(num => num * 2) is executed and we get our result
-// SelectManager will then save the dependencies and resul
+// SelectManager will then save the dependencies and result
 // { deps: [state1.something], result: [2, 4, 6] };
-ctx.execute(doubleSelector, state1);
+ctx.execute(doubleSelector);
 
 // If we execute the same selector again
-// the simpleSelector is executed
-// but when selectManager.select is called
+// the simpleSelector is executed but when memo() is called
 // selectManager will compare previous deps with new deps
 // prev: [state1.something] => new [state1.something]
 // and because it's the same it will return the cached result
 // => return [2, 4, 6] (same reference as before, no new table created !)
-ctx.execute(doubleSelector, state1);
+ctx.execute(doubleSelector);
 
+// Now imagine the state change
 const state2 = { something: [1, 2] };
 
 // Is we execute the same selector with a different state
@@ -94,22 +95,3 @@ ctx.execute(doubleSelector, state2);
 
 Take a look at the example folder !
 
-## Notes
-
-`useSelector` does not expect you to pass a different selector between render, instead you should pass a argument to your selector.
-
-```js
-// DO NOT DO THIS
-useSelector(isAdmin ? selectAdminList : selectUserList);
-```
-
-```js
-// DO THIS INSTEAD
-const selectList = (state, isAdmin) => {
-  return selectManager.select(() => {
-    return isAdmin ? selectAdminList(state) : selectUserList(state);
-  }, [state, isAdmin]);
-};
-
-useSelector(selectList);
-```

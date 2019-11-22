@@ -32,10 +32,7 @@ const selectManager = StoreMemoManager.create(store);
 
 const selectHideDone: Selector<boolean> = ({ state }) => state.hideDone;
 
-// in order to be usable with useSelector
-// all selector must receive the state as first parameter
 const selectVisibleTodos: Selector<Todo[]> = ({ state, memo }) => {
-  // selectManager.select is similar to React.useMemo
   return memo(() => {
     if (state.hideDone) {
       return state.todos.filter(t => t.done === false);
